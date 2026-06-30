@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Apple Watch Heart Insights</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0b0d12;
+    --panel: #151922;
+    --panel-2: #1c212d;
+    --line: #262d3a;
+    --text: #e7ecf3;
+    --muted: #93a0b4;
+    --accent: #ff375f;
+    --accent-2: #0a84ff;
+    --good: #30d158;
+    --warn: #ffd60a;
+    --z1: #5e9cff;
+    --z2: #30d158;
+    --z3: #ffd60a;
+    --z4: #ff9f0a;
+    --z5: #ff375f;
+    --radius: 16px;
+    --shadow: 0 10px 30px rgba(0,0,0,.35);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: radial-gradient(1200px 600px at 80% -10%, rgba(255,55,95,.10), transparent 60%),
+                radial-gradient(900px 500px at -10% 10%, rgba(10,132,255,.10), transparent 55%),
+                var(--bg);
+    color: var(--text);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 32px 20px 80px; }
+  header.app { display: flex; align-items: center; gap: 14px; margin-bottom: 6px; }
+  header.app .glyph {
+    width: 46px; height: 46px; border-radius: 13px; flex: none;
+    background: linear-gradient(160deg, var(--accent), #c81e45);
+    display: grid; place-items: center; box-shadow: var(--shadow);
+  }
+  header.app .glyph svg { width: 26px; height: 26px; }
+  header.app h1 { font-size: 22px; margin: 0; letter-spacing: -.02em; }
+  header.app p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+
+  .privacy {
+    margin: 18px 0 22px; padding: 10px 14px; border: 1px solid var(--line);
+    background: var(--panel); border-radius: 12px; color: var(--muted); font-size: 13px;
+    display: flex; gap: 10px; align-items: center;
+  }
+  .privacy b { color: var(--text); }
+
+  .controls {
+    display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; margin-bottom: 22px;
+  }
+  @media (max-width: 760px){ .controls { grid-template-columns: 1fr; } .summary-grid{ grid-template-columns: repeat(2,1fr)!important; } }
+  .card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 18px; box-shadow: var(--shadow);
+  }
+  .card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 14px; font-weight: 600; }
+
+  .drop {
+    border: 1.5px dashed var(--line); border-radius: 12px; padding: 22px; text-align: center;
+    cursor: pointer; transition: .15s; background: var(--panel-2);
+  }
+  .drop:hover, .drop.drag { border-color: var(--accent); background: #20141a; }
+  .drop strong { color: var(--text); }
+  .drop small { color: var(--muted); display:block; margin-top: 6px; }
+  .row { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+  button {
+    font: inherit; color: var(--text); background: var(--panel-2); border: 1px solid var(--line);
+    padding: 9px 14px; border-radius: 10px; cursor: pointer; transition: .15s;
+  }
+  button:hover { border-color: var(--accent-2); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  button.primary:hover { filter: brightness(1.08); }
+
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; }
+  .field input, .field select {
+    width: 100%; padding: 9px 11px; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--panel-2); color: var(--text); font: inherit;
+  }
+  .twocol { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .hint { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+  #progress { display: none; margin: 8px 0 24px; }
+  #progress .bar { height: 8px; background: var(--panel-2); border-radius: 99px; overflow: hidden; border: 1px solid var(--line); }
+  #progress .bar > i { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent-2), var(--accent)); transition: width .2s; }
+  #progress .label { font-size: 12px; color: var(--muted); margin-top: 6px; }
+
+  #results { display: none; }
+  .section-title { font-size: 16px; margin: 30px 0 14px; letter-spacing: -.01em; }
+
+  .summary-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; }
+  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
+  .stat .k { font-size: 12px; color: var(--muted); }
+  .stat .v { font-size: 26px; font-weight: 700; letter-spacing: -.02em; margin-top: 4px; }
+  .stat .v small { font-size: 13px; color: var(--muted); font-weight: 500; }
+  .stat .sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .delta.up { color: var(--accent); } .delta.down { color: var(--good); }
+
+  table.zones { width: 100%; border-collapse: collapse; }
+  table.zones th, table.zones td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--line); font-size: 14px; }
+  table.zones th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+  .zdot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 8px; vertical-align: middle; }
+  .zbar { height: 8px; border-radius: 99px; background: var(--panel-2); overflow: hidden; min-width: 60px; }
+  .zbar > i { display: block; height: 100%; }
+  td.num { font-variant-numeric: tabular-nums; }
+
+  .insights { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 760px){ .insights { grid-template-columns: 1fr; } }
+  .insight { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: flex; gap: 12px; }
+  .insight .i { width: 34px; height: 34px; border-radius: 9px; flex: none; display: grid; place-items: center; font-size: 18px; }
+  .insight h3 { margin: 0 0 4px; font-size: 14px; }
+  .insight p { margin: 0; color: var(--muted); font-size: 13px; }
+  .insight.good .i { background: rgba(48,209,88,.15); }
+  .insight.warn .i { background: rgba(255,214,10,.15); }
+  .insight.info .i { background: rgba(10,132,255,.15); }
+  .insight.alert .i { background: rgba(255,55,95,.15); }
+
+  .chart-card { margin-top: 14px; }
+  .chart-wrap { position: relative; height: 280px; }
+  .muted { color: var(--muted); }
+  .pill { display:inline-block; padding: 2px 9px; border-radius: 99px; background: var(--panel-2); border: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+  footer.app { margin-top: 50px; color: var(--muted); font-size: 12px; text-align: center; }
+  a { color: var(--accent-2); }
+  .err { color: var(--accent); font-size: 13px; margin-top: 8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="app">
+    <div class="glyph">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 12h3l2 6 4-14 2 8 2-4h5"/>
+      </svg>
+    </div>
+    <div>
+      <h1>Apple Watch Heart Insights</h1>
+      <p>Deeper heart-rate analysis &amp; training-zone breakdowns from your Apple Health export.</p>
+    </div>
+  </header>
+
+  <div class="privacy">
+    <span>🔒</span>
+    <div><b>100% private.</b> Your file is parsed entirely in this browser tab. Nothing is uploaded, stored, or sent anywhere.</div>
+  </div>
+
+  <div class="controls">
+    <div class="card">
+      <h2>1 · Load your data</h2>
+      <div class="drop" id="drop">
+        <strong>Drop <code>export.xml</code> here or click to browse</strong>
+        <small>From Health app → your profile photo → <em>Export All Health Data</em>, then unzip and pick <code>apple_health_export/export.xml</code>.</small>
+      </div>
+      <input type="file" id="file" accept=".xml" hidden />
+      <div class="row">
+        <button class="primary" id="pickBtn">Choose file</button>
+        <button id="demoBtn">Load demo data</button>
+      </div>
+      <div class="err" id="err"></div>
+    </div>
+
+    <div class="card">
+      <h2>2 · Personalize zones</h2>
+      <div class="twocol">
+        <div class="field">
+          <label for="age">Age</label>
+          <input type="number" id="age" min="10" max="100" value="30" />
+        </div>
+        <div class="field">
+          <label for="maxhr">Max HR (bpm)</label>
+          <input type="number" id="maxhr" min="120" max="230" placeholder="auto" />
+          <div class="hint">Blank = 220 − age</div>
+        </div>
+      </div>
+      <div class="field">
+        <label for="method">Zone method</label>
+        <select id="method">
+          <option value="hrr" selected>Heart-rate reserve (Karvonen)</option>
+          <option value="pctmax">% of max HR</option>
+        </select>
+        <div class="hint" id="methodHint">Uses resting HR from your data for personalized zones.</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="progress">
+    <div class="bar"><i id="progBar"></i></div>
+    <div class="label" id="progLabel">Reading…</div>
+  </div>
+
+  <div id="results">
+    <div class="section-title">Summary <span class="pill" id="rangePill"></span></div>
+    <div class="summary-grid" id="summaryGrid"></div>
+
+    <div class="section-title">Heart-rate zones <span class="pill" id="zoneMethodPill"></span></div>
+    <div class="card">
+      <table class="zones" id="zoneTable">
+        <thead>
+          <tr><th>Zone</th><th>Range (bpm)</th><th>Time</th><th>Share</th><th style="width:34%"></th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <div class="hint" style="margin-top:10px">Time-in-zone is estimated from the spacing between heart-rate samples (gaps capped at 5&nbsp;min so sleep/idle stretches don't distort it).</div>
+    </div>
+
+    <div class="card chart-card">
+      <h2>Time in each zone</h2>
+      <div class="chart-wrap"><canvas id="zoneChart"></canvas></div>
+    </div>
+
+    <div class="section-title">Insights</div>
+    <div class="insights" id="insights"></div>
+
+    <div class="section-title">Trends</div>
+    <div class="card chart-card">
+      <h2>Resting heart rate over time</h2>
+      <div class="chart-wrap"><canvas id="restChart"></canvas></div>
+    </div>
+    <div class="card chart-card">
+      <h2>Heart-rate variability (SDNN) over time</h2>
+      <div class="chart-wrap"><canvas id="hrvChart"></canvas></div>
+    </div>
+    <div class="card chart-card">
+      <h2>Heart-rate distribution</h2>
+      <div class="chart-wrap"><canvas id="histChart"></canvas></div>
+    </div>
+  </div>
+
+  <footer class="app">
+    Built for personal use · Not medical advice. Consult a clinician for health decisions.<br/>
+    Reads Apple Health <code>export.xml</code> · Heart rate, resting HR, HRV (SDNN), walking HR &amp; VO₂max.
+  </footer>
+</div>
+
+<script>
+"use strict";
+
+/* ---------- helpers ---------- */
+const $ = (id) => document.getElementById(id);
+const fmt = (n, d=0) => n==null || isNaN(n) ? "—" : Number(n).toLocaleString(undefined,{maximumFractionDigits:d,minimumFractionDigits:d});
+const ZONE_META = [
+  { name: "Zone 1 · Recovery",   color: "var(--z1)", c:"#5e9cff", lo:.50, hi:.60, blurb:"Very light, warm-up & active recovery" },
+  { name: "Zone 2 · Endurance",  color: "var(--z2)", c:"#30d158", lo:.60, hi:.70, blurb:"Aerobic base, fat-burning, all-day sustainable" },
+  { name: "Zone 3 · Tempo",      color: "var(--z3)", c:"#ffd60a", lo:.70, hi:.80, blurb:"Aerobic power, improves efficiency" },
+  { name: "Zone 4 · Threshold",  color: "var(--z4)", c:"#ff9f0a", lo:.80, hi:.90, blurb:"Hard, raises lactate threshold" },
+  { name: "Zone 5 · Max",        color: "var(--z5)", c:"#ff375f", lo:.90, hi:1.01, blurb:"All-out, anaerobic, short bursts" },
+];
+
+function parseAppleDate(s){
+  // "2024-01-15 08:30:00 -0700"
+  if(!s) return null;
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2}) ([+-]\d{2})(\d{2})$/);
+  if(!m) { const d = new Date(s); return isNaN(d) ? null : d; }
+  const iso = `${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}${m[7]}:${m[8]}`;
+  const d = new Date(iso);
+  return isNaN(d) ? null : d;
+}
+const dayKey = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+
+/* ---------- data model ---------- */
+let DATA = null; // { hr:[{t,v}], resting:[{t,v}], hrv:[{t,v}], walking:[{t,v}], vo2:[{t,v}] }
+
+/* ---------- streaming XML parse ---------- */
+const TYPES = {
+  HeartRate: "hr",
+  RestingHeartRate: "resting",
+  HeartRateVariabilitySDNN: "hrv",
+  WalkingHeartRateAverage: "walking",
+  VO2Max: "vo2",
+};
+const RECORD_RE = /<Record\b[^>]*?type="HKQuantityTypeIdentifier(HeartRate|RestingHeartRate|HeartRateVariabilitySDNN|WalkingHeartRateAverage|VO2Max)"[^>]*?>/g;
+const attr = (tag, name) => { const m = tag.match(new RegExp(name+'="([^"]*)"')); return m ? m[1] : null; };
+
+async function parseFile(file){
+  const out = { hr:[], resting:[], hrv:[], walking:[], vo2:[] };
+  const CHUNK = 8 * 1024 * 1024;
+  let offset = 0, tail = "";
+  const dec = new TextDecoder("utf-8");
+  showProgress(0, "Reading…");
+  while(offset < file.size){
+    const slice = file.slice(offset, offset + CHUNK);
+    const buf = await slice.arrayBuffer();
+    let text = tail + dec.decode(buf, { stream: true });
+    // keep a tail to avoid splitting a record across chunks
+    const lastOpen = text.lastIndexOf("<Record");
+    if(lastOpen > -1 && text.indexOf(">", lastOpen) === -1){
+      tail = text.slice(lastOpen);
+      text = text.slice(0, lastOpen);
+    } else {
+      tail = "";
+    }
+    let m;
+    RECORD_RE.lastIndex = 0;
+    while((m = RECORD_RE.exec(text)) !== null){
+      const tag = m[0];
+      const key = TYPES[m[1]];
+      const v = parseFloat(attr(tag, "value"));
+      const t = parseAppleDate(attr(tag, "startDate"));
+      if(t && !isNaN(v)) out[key].push({ t, v });
+    }
+    offset += CHUNK;
+    showProgress(Math.min(99, Math.round(offset / file.size * 100)), `Parsing… ${fmt(out.hr.length)} heart-rate samples`);
+  }
+  for(const k in out) out[k].sort((a,b)=> a.t - b.t);
+  hideProgress();
+  return out;
+}
+
+/* ---------- analytics ---------- */
+function effectiveMaxHR(){
+  const manual = parseFloat($("maxhr").value);
+  if(!isNaN(manual) && manual>0) return manual;
+  const age = parseFloat($("age").value) || 30;
+  return Math.round(220 - age);
+}
+function restingForZones(){
+  if(DATA.resting.length){
+    // median of last 30 days of resting values
+    const cut = DATA.resting[DATA.resting.length-1].t - 30*864e5;
+    const recent = DATA.resting.filter(d=>d.t>=cut).map(d=>d.v).sort((a,b)=>a-b);
+    if(recent.length) return Math.round(recent[Math.floor(recent.length/2)]);
+  }
+  // fallback: low percentile of all HR
+  if(DATA.hr.length){
+    const vals = DATA.hr.map(d=>d.v).sort((a,b)=>a-b);
+    return Math.round(vals[Math.floor(vals.length*0.02)]);
+  }
+  return 60;
+}
+function zoneBounds(){
+  const maxHR = effectiveMaxHR();
+  const method = $("method").value;
+  if(method === "hrr"){
+    const rest = restingForZones();
+    const reserve = Math.max(1, maxHR - rest);
+    return { method:"hrr", maxHR, rest, bounds: ZONE_META.map(z => ({
+      ...z, loBpm: Math.round(rest + z.lo*reserve), hiBpm: Math.round(rest + z.hi*reserve)
+    }))};
+  }
+  return { method:"pctmax", maxHR, rest:null, bounds: ZONE_META.map(z => ({
+    ...z, loBpm: Math.round(z.lo*maxHR), hiBpm: Math.round(z.hi*maxHR)
+  }))};
+}
+function zoneOf(v, bounds){
+  for(let i=0;i<bounds.length;i++){ if(v < bounds[i].hiBpm || i===bounds.length-1) { if(v>=bounds[0].loBpm) return i; return -1; } }
+  return -1;
+}
+const GAP_CAP = 5*60; // seconds
+function computeZones(bounds){
+  const secs = new Array(bounds.length).fill(0);
+  const counts = new Array(bounds.length).fill(0);
+  const hr = DATA.hr;
+  for(let i=0;i<hr.length;i++){
+    let dur = GAP_CAP;
+    if(i < hr.length-1){ dur = Math.min(GAP_CAP, Math.max(1,(hr[i+1].t - hr[i].t)/1000)); }
+    else dur = 60;
+    let zi = -1;
+    for(let z=0; z<bounds.length; z++){ if(hr[i].v >= bounds[z].loBpm && hr[i].v < bounds[z].hiBpm){ zi=z; break; } }
+    if(hr[i].v >= bounds[bounds.length-1].loBpm) zi = bounds.length-1; // anything >= z5 low is z5
+    if(hr[i].v < bounds[0].loBpm) continue; // below zone 1 (rest) — not counted as training
+    if(zi>=0){ secs[zi]+=dur; counts[zi]++; }
+  }
+  const total = secs.reduce((a,b)=>a+b,0) || 1;
+  return bounds.map((b,i)=>({ ...b, seconds: secs[i], count: counts[i], share: secs[i]/total }));
+}
+function humanDur(sec){
+  const h = Math.floor(sec/3600), m = Math.round((sec%3600)/60);
+  if(h>=1) return `${h}h ${m}m`;
+  if(m>=1) return `${m}m`;
+  return `${Math.round(sec)}s`;
+}
+function stats(arr){
+  if(!arr.length) return null;
+  const v = arr.map(d=>d.v);
+  const sum = v.reduce((a,b)=>a+b,0);
+  const sorted = [...v].sort((a,b)=>a-b);
+  return { n:v.length, avg:sum/v.length, min:sorted[0], max:sorted[sorted.length-1],
+           median:sorted[Math.floor(sorted.length/2)] };
+}
+function trend(arr){ // returns {first, last, delta} using daily medians, first 7 vs last 7 days
+  if(arr.length < 4) return null;
+  const byDay = {};
+  arr.forEach(d => { (byDay[dayKey(d.t)] ||= []).push(d.v); });
+  const days = Object.keys(byDay).sort();
+  const med = (a)=>{ const s=[...a].sort((x,y)=>x-y); return s[Math.floor(s.length/2)]; };
+  const firstDays = days.slice(0, Math.min(7, Math.floor(days.length/2)));
+  const lastDays = days.slice(-Math.min(7, Math.floor(days.length/2)));
+  if(!firstDays.length || !lastDays.length) return null;
+  const f = med(firstDays.flatMap(d=>byDay[d]));
+  const l = med(lastDays.flatMap(d=>byDay[d]));
+  return { first:f, last:l, delta:l-f };
+}
+function dailySeries(arr){
+  const byDay = {};
+  arr.forEach(d => { (byDay[dayKey(d.t)] ||= []).push(d.v); });
+  const days = Object.keys(byDay).sort();
+  return days.map(d => ({ x:d, y: byDay[d].reduce((a,b)=>a+b,0)/byDay[d].length }));
+}
+
+/* ---------- render ---------- */
+let charts = {};
+function destroyCharts(){ Object.values(charts).forEach(c=>{try{c.destroy()}catch(e){}}); charts={}; }
+
+function render(){
+  if(!DATA || !DATA.hr.length){ showErr("No heart-rate samples found in this file. Make sure you exported from Apple Health and selected export.xml."); return; }
+  showErr("");
+  const hrS = stats(DATA.hr);
+  const restS = stats(DATA.resting);
+  const restTrend = trend(DATA.resting);
+  const hrvS = stats(DATA.hrv);
+  const hrvTrend = trend(DATA.hrv);
+  const vo2 = DATA.vo2.length ? DATA.vo2[DATA.vo2.length-1].v : null;
+  const walkS = stats(DATA.walking);
+
+  const start = DATA.hr[0].t, end = DATA.hr[DATA.hr.length-1].t;
+  const days = Math.max(1, Math.round((end-start)/864e5));
+  $("rangePill").textContent = `${start.toLocaleDateString()} – ${end.toLocaleDateString()} · ${fmt(days)} days`;
+
+  // summary cards
+  const cards = [];
+  cards.push(card("Average heart rate", `${fmt(hrS.avg)}<small> bpm</small>`, `${fmt(hrS.n)} samples`));
+  if(restS){
+    let sub = `range ${fmt(restS.min)}–${fmt(restS.max)}`;
+    if(restTrend){ const d=restTrend.delta; const cls = d<0?"down":"up"; const arrow=d<0?"↓":"↑"; sub = `<span class="delta ${cls}">${arrow} ${fmt(Math.abs(d),1)} bpm</span> vs early period`; }
+    cards.push(card("Resting heart rate", `${fmt(restS.median)}<small> bpm</small>`, sub));
+  }
+  cards.push(card("Min / Max observed", `${fmt(hrS.min)}<small> – </small>${fmt(hrS.max)}<small> bpm</small>`, "lowest & peak reading"));
+  if(hrvS){
+    let sub = "SDNN, higher = better recovery";
+    if(hrvTrend){ const d=hrvTrend.delta; const cls=d>0?"down":"up"; const arrow=d>0?"↑":"↓"; sub=`<span class="delta ${cls}">${arrow} ${fmt(Math.abs(d),1)} ms</span> vs early period`; }
+    cards.push(card("Heart-rate variability", `${fmt(hrvS.median)}<small> ms</small>`, sub));
+  }
+  if(vo2!=null) cards.push(card("Cardio fitness (VO₂max)", `${fmt(vo2,1)}<small> ml/kg/min</small>`, vo2Label(vo2)));
+  if(walkS) cards.push(card("Walking heart rate", `${fmt(walkS.median)}<small> bpm</small>`, "avg while walking"));
+  cards.push(card("Max HR used for zones", `${fmt(effectiveMaxHR())}<small> bpm</small>`, $("maxhr").value? "manual" : "220 − age"));
+  cards.push(card("Total monitored time", humanDurLong(estimatedMonitoredSeconds()), `${fmt(DATA.hr.length)} HR readings`));
+  $("summaryGrid").innerHTML = cards.join("");
+
+  // zones
+  const zb = zoneBounds();
+  $("zoneMethodPill").textContent = zb.method==="hrr" ? `Karvonen · rest ${zb.rest} · max ${zb.maxHR}` : `% of max ${zb.maxHR}`;
+  const zones = computeZones(zb.bounds);
+  const tbody = $("zoneTable").querySelector("tbody");
+  const maxShare = Math.max(...zones.map(z=>z.share), 0.0001);
+  tbody.innerHTML = zones.map(z => `
+    <tr>
+      <td><span class="zdot" style="background:${z.c}"></span>${z.name}<div class="hint" style="margin-left:18px">${z.blurb}</div></td>
+      <td class="num">${z.loBpm}–${z.hiBpm===zb.bounds[zb.bounds.length-1].hiBpm?'+':z.hiBpm}</td>
+      <td class="num">${humanDur(z.seconds)}</td>
+      <td class="num">${fmt(z.share*100,1)}%</td>
+      <td><div class="zbar"><i style="width:${(z.share/maxShare*100).toFixed(1)}%;background:${z.c}"></i></div></td>
+    </tr>`).join("");
+
+  drawCharts(zones, zb);
+  renderInsights({hrS, restS, restTrend, hrvS, hrvTrend, vo2, zones, zb, days});
+
+  $("results").style.display = "block";
+  $("results").scrollIntoView({behavior:"smooth", block:"start"});
+}
+
+function estimatedMonitoredSeconds(){
+  const hr = DATA.hr; let s=0;
+  for(let i=0;i<hr.length-1;i++){ s += Math.min(GAP_CAP, Math.max(1,(hr[i+1].t-hr[i].t)/1000)); }
+  return s;
+}
+function humanDurLong(sec){ const h=Math.floor(sec/3600); const d=Math.floor(h/24); if(d>=1) return `${d}d ${h%24}h`; return `${h}h`; }
+function vo2Label(v){
+  // generic banding
+  if(v>=50) return "high";
+  if(v>=43) return "above average";
+  if(v>=35) return "average";
+  if(v>=30) return "below average";
+  return "low";
+}
+function card(k,v,sub){ return `<div class="stat"><div class="k">${k}</div><div class="v">${v}</div>${sub?`<div class="sub">${sub}</div>`:""}</div>`; }
+
+function drawCharts(zones, zb){
+  destroyCharts();
+  if(typeof Chart === "undefined") return;
+  Chart.defaults.color = "#93a0b4";
+  Chart.defaults.borderColor = "#262d3a";
+  Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+
+  charts.zone = new Chart($("zoneChart"), {
+    type:"bar",
+    data:{ labels: zones.map(z=>z.name.split(" · ")[0]),
+      datasets:[{ data: zones.map(z=> +(z.seconds/60).toFixed(0)), backgroundColor: zones.map(z=>z.c), borderRadius:6 }]},
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false},
+      tooltip:{callbacks:{label:(c)=>`${humanDur(zones[c.dataIndex].seconds)} · ${fmt(zones[c.dataIndex].share*100,1)}%`}}},
+      scales:{ y:{ title:{display:true,text:"minutes"}, beginAtZero:true } } }
+  });
+
+  const restSeries = dailySeries(DATA.resting);
+  charts.rest = lineChart("restChart", restSeries, "#ff375f", "Resting HR (bpm)");
+  const hrvSeries = dailySeries(DATA.hrv);
+  charts.hrv = lineChart("hrvChart", hrvSeries, "#0a84ff", "HRV SDNN (ms)");
+
+  // histogram
+  const buckets = {}; const bsize = 5;
+  DATA.hr.forEach(d=>{ const b = Math.floor(d.v/bsize)*bsize; buckets[b]=(buckets[b]||0)+1; });
+  const keys = Object.keys(buckets).map(Number).sort((a,b)=>a-b);
+  charts.hist = new Chart($("histChart"), {
+    type:"bar",
+    data:{ labels: keys.map(k=>`${k}`),
+      datasets:[{ data: keys.map(k=>buckets[k]), backgroundColor: keys.map(k=>{
+        const b = zb.bounds; let col="#3a4456";
+        for(let z=0;z<b.length;z++){ if(k>=b[z].loBpm && k<b[z].hiBpm) col=b[z].c; }
+        if(k>=b[b.length-1].loBpm) col=b[b.length-1].c;
+        return col; }), borderRadius:3 }]},
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false},
+      tooltip:{callbacks:{title:(c)=>`${c[0].label}–${+c[0].label+bsize} bpm`,label:(c)=>`${fmt(c.raw)} samples`}}},
+      scales:{ x:{ title:{display:true,text:"bpm"} }, y:{ title:{display:true,text:"samples"}, beginAtZero:true } } }
+  });
+}
+function lineChart(id, series, color, label){
+  if(typeof Chart==="undefined" || !series.length) return null;
+  return new Chart($(id), {
+    type:"line",
+    data:{ labels: series.map(p=>p.x),
+      datasets:[{ label, data: series.map(p=>+p.y.toFixed(1)), borderColor:color,
+        backgroundColor: color+"22", fill:true, tension:.3, pointRadius: series.length>60?0:2, borderWidth:2 }]},
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
+      scales:{ x:{ ticks:{maxTicksLimit:8} }, y:{ title:{display:true,text:label} } } }
+  });
+}
+
+function renderInsights(d){
+  const items = [];
+  // resting HR insight
+  if(d.restS){
+    if(d.restTrend && d.restTrend.delta <= -2)
+      items.push(ins("good","💚","Resting HR is improving",`Your resting heart rate dropped about ${fmt(Math.abs(d.restTrend.delta),1)} bpm from the start to the end of this period — often a sign of improving cardiovascular fitness or better recovery.`));
+    else if(d.restTrend && d.restTrend.delta >= 2)
+      items.push(ins("warn","⚠️","Resting HR is creeping up",`Your resting heart rate rose about ${fmt(d.restTrend.delta,1)} bpm. This can follow stress, poor sleep, illness, alcohol, or overtraining. Worth watching.`));
+    else
+      items.push(ins("info","💙","Stable resting heart rate",`Your resting HR held steady around ${fmt(d.restS.median)} bpm. A typical adult range is roughly 60–100 bpm; athletes often sit lower.`));
+  }
+  // zone balance
+  const z = d.zones; const totalSec = z.reduce((a,b)=>a+b.seconds,0)||1;
+  const z2plus = (z[1].seconds+z[2].seconds+z[3].seconds+z[4].seconds)/totalSec;
+  const lowShare = z[0].seconds/totalSec;
+  const highShare = (z[3].seconds+z[4].seconds)/totalSec;
+  if(z2plus < 0.15)
+    items.push(ins("info","🚶","Mostly light activity",`About ${fmt(lowShare*100)}% of your active heart-rate time is in Zone 1. Adding sustained Zone 2 sessions (a conversational-pace effort) builds your aerobic base.`));
+  else if(highShare > 0.35)
+    items.push(ins("warn","🔥","Heavy on high intensity",`Around ${fmt(highShare*100)}% of your time is in Zones 4–5. Mixing in more easy Zone 2 work can improve endurance and aid recovery — the classic 80/20 split.`));
+  else
+    items.push(ins("good","🎯","Well-balanced intensity",`Your time is spread across zones with a solid aerobic base in Zones 2–3. That's a healthy distribution for general fitness.`));
+
+  // HRV
+  if(d.hrvS){
+    if(d.hrvTrend && d.hrvTrend.delta >= 3)
+      items.push(ins("good","🧘","Recovery trending up",`Your HRV (SDNN) rose ~${fmt(d.hrvTrend.delta,1)} ms. Higher HRV generally reflects better recovery and a relaxed nervous system.`));
+    else if(d.hrvTrend && d.hrvTrend.delta <= -3)
+      items.push(ins("warn","😴","Recovery trending down",`Your HRV fell ~${fmt(Math.abs(d.hrvTrend.delta),1)} ms. Sustained drops can signal accumulated stress, poor sleep, or under-recovery.`));
+    else
+      items.push(ins("info","🧘","Steady HRV",`Median HRV around ${fmt(d.hrvS.median)} ms. HRV is highly individual — track your own trend rather than comparing to others.`));
+  }
+  // peak / range
+  items.push(ins("info","📈","Your heart-rate range",`You ranged from ${fmt(d.hrS.min)} bpm at rest up to a peak of ${fmt(d.hrS.max)} bpm. Your estimated max for zones is ${fmt(d.zb.maxHR)} bpm${d.hrS.max>d.zb.maxHR?` — but you actually hit ${fmt(d.hrS.max)} bpm, so you may want to set Max HR to your observed peak for more accurate zones.`:`.`}`));
+  // vo2
+  if(d.vo2!=null)
+    items.push(ins("info","🫁","Cardio fitness",`Your latest VO₂max estimate is ${fmt(d.vo2,1)} ml/kg/min (${vo2Label(d.vo2)}). VO₂max tends to rise with consistent Zone 2–4 aerobic training.`));
+
+  $("insights").innerHTML = items.join("");
+}
+function ins(type,icon,title,body){ return `<div class="insight ${type}"><div class="i">${icon}</div><div><h3>${title}</h3><p>${body}</p></div></div>`; }
+
+/* ---------- progress / errors ---------- */
+function showProgress(pct,label){ $("progress").style.display="block"; $("progBar").style.width=pct+"%"; $("progLabel").textContent=label; }
+function hideProgress(){ $("progress").style.display="none"; }
+function showErr(msg){ $("err").textContent = msg; }
+
+/* ---------- demo data ---------- */
+function genDemo(){
+  const out = { hr:[], resting:[], hrv:[], walking:[], vo2:[] };
+  const now = Date.now();
+  const DAYS = 30;
+  for(let day=DAYS-1; day>=0; day--){
+    const base = now - day*864e5;
+    // resting HR: gentle downward trend with noise
+    const restBase = 60 - (DAYS-day)*0.12 + (Math.random()*4-2);
+    const rest = Math.max(46, Math.round(restBase));
+    out.resting.push({ t:new Date(base + 6*3600e3), v: rest });
+    out.hrv.push({ t:new Date(base + 6*3600e3), v: Math.round(48 + (DAYS-day)*0.25 + (Math.random()*16-8)) });
+    out.walking.push({ t:new Date(base + 12*3600e3), v: Math.round(98 + Math.random()*14) });
+    // alternate hard interval days with easy aerobic (Zone 2) days
+    const hardDay = (day % 3 === 0);
+    const easyDay = (day % 3 !== 0 && day % 3 === 1);
+    for(let min=0; min<24*60; min+=5){
+      const t = new Date(base + min*60e3);
+      let v;
+      const hour = min/60;
+      if(hour>=0 && hour<6.5){ v = rest + Math.random()*6 - 2; } // sleep
+      else if(hardDay && hour>=18 && hour<18.75){ // ~45 min intervals → Z4/5
+        const prog = (hour-18)/0.75;
+        v = rest + 55 + Math.sin(prog*Math.PI)*60 + Math.sin(prog*Math.PI*6)*18 + Math.random()*8;
+      } else if(easyDay && hour>=7 && hour<8){ // ~60 min easy aerobic → Z2/3
+        v = rest + 50 + Math.sin((hour-7)*Math.PI)*22 + Math.random()*10;
+      } else { v = rest + 16 + Math.sin(hour/24*Math.PI*2)*10 + Math.random()*16; }
+      out.hr.push({ t, v: Math.max(42, Math.round(v)) });
+    }
+  }
+  out.vo2.push({ t:new Date(now - 20*864e5), v: 43.2 });
+  out.vo2.push({ t:new Date(now - 2*864e5), v: 45.8 });
+  for(const k in out) out[k].sort((a,b)=>a.t-b.t);
+  return out;
+}
+
+/* ---------- wiring ---------- */
+const drop = $("drop"), fileInput = $("file");
+$("pickBtn").onclick = () => fileInput.click();
+drop.onclick = () => fileInput.click();
+fileInput.onchange = (e)=>{ if(e.target.files[0]) handleFile(e.target.files[0]); };
+["dragenter","dragover"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add("drag");}));
+["dragleave","drop"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove("drag");}));
+drop.addEventListener("drop",e=>{ const f=e.dataTransfer.files[0]; if(f) handleFile(f); });
+$("demoBtn").onclick = ()=>{ DATA = genDemo(); showErr(""); render(); };
+
+["age","maxhr","method"].forEach(id=> $(id).addEventListener("change", ()=>{ if(DATA) render(); }));
+$("method").addEventListener("change", ()=>{ $("methodHint").textContent = $("method").value==="hrr"
+  ? "Uses resting HR from your data for personalized zones." : "Zones as a straight percentage of your max HR."; });
+
+async function handleFile(file){
+  showErr("");
+  if(file.name.endsWith(".zip")){ showErr("Please unzip the export first, then select apple_health_export/export.xml."); return; }
+  try{
+    DATA = await parseFile(file);
+    render();
+  }catch(err){ hideProgress(); showErr("Could not read that file: "+err.message); console.error(err); }
+}
+</script>
+</body>
+</html>
