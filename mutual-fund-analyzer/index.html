@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mutual Fund Portfolio Analyzer</title>
+  <meta name="description" content="Upload your CAMS mutual fund statement, see your portfolio in a dashboard with pie charts, and get goal-based fund ideas from a market-trend read." />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand"><span class="dot">₹</span> Portfolio Analyzer</div>
+      <span class="spacer"></span>
+      <button class="ghost-btn" id="loadSample">Load sample portfolio</button>
+      <button class="theme-btn" id="themeToggle" title="Toggle theme">◐</button>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <!-- HERO / UPLOAD -->
+    <section class="hero" id="uploadSection">
+      <h1>Understand your mutual fund portfolio in a minute.</h1>
+      <p class="sub">Upload your latest CAMS/KFintech Consolidated Account Statement. Everything runs in your browser — your statement never leaves this device.</p>
+
+      <div class="upload-grid">
+        <div>
+          <div class="dropzone" id="dropzone">
+            <div class="icon">📄</div>
+            <div class="big">Drop your CAMS statement here, or click to choose</div>
+            <div class="small">Password-protected PDF, or a CSV export</div>
+            <input type="file" id="fileInput" class="hidden" accept=".pdf,.csv,.txt" />
+          </div>
+          <div class="field" id="pwField" style="display:none">
+            <label for="pdfPassword">PDF password (usually your PAN in CAPITALS)</label>
+            <input type="password" id="pdfPassword" class="text" placeholder="e.g. ABCDE1234F" />
+            <div class="btn-row"><button class="btn" id="retryPdf">Unlock &amp; analyse</button></div>
+          </div>
+          <div id="uploadNotice"></div>
+        </div>
+
+        <div class="card pad">
+          <div class="section-title">No file handy?</div>
+          <p style="font-size:13.5px;color:var(--text-secondary);margin:0 0 10px">Paste the text of your statement, or start with sample data.</p>
+          <textarea class="paste" id="pasteBox" placeholder="Paste statement text here…"></textarea>
+          <div class="btn-row">
+            <button class="btn" id="analysePaste">Analyse pasted text</button>
+            <button class="btn secondary" id="loadSample2">Use sample</button>
+          </div>
+          <div class="hint"><a href="#" id="dlTemplate">Download CSV template</a> — columns: Scheme, Units, NAV, Value, Cost</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- DASHBOARD -->
+    <section id="dashboard" class="hidden">
+      <div style="display:flex;align-items:baseline;gap:12px;margin:34px 0 0;flex-wrap:wrap">
+        <h2 style="font-size:22px">Your portfolio</h2>
+        <span class="hint" id="asOf"></span>
+        <span class="spacer" style="flex:1"></span>
+        <button class="ghost-btn" id="resetBtn">Upload a different statement</button>
+      </div>
+
+      <div class="kpi-row" id="kpiRow"></div>
+
+      <div class="charts-grid" id="chartsGrid"></div>
+
+      <div class="section-title" style="margin-top:26px">Holdings</div>
+      <div class="card table-card">
+        <table class="holdings" id="holdingsTable"></table>
+      </div>
+
+      <!-- RECOMMENDATIONS -->
+      <div style="margin-top:40px">
+        <h2 style="font-size:22px">What could I invest in today?</h2>
+        <p class="sub" style="margin:8px 0 0;color:var(--text-secondary);font-size:14.5px">Pick a goal, then read the market and get a fund plan tailored to your current holdings.</p>
+
+        <div class="card pad" style="margin-top:16px">
+          <div class="rec-controls">
+            <div>
+              <label class="hint" style="display:block;margin-bottom:6px">Your goal</label>
+              <div class="goal-group" id="goalGroup">
+                <button class="goal-pill" data-goal="safe">🛡️ Play it safe</button>
+                <button class="goal-pill active" data-goal="balanced">⚖️ Middle ground</button>
+                <button class="goal-pill" data-goal="aggressive">🚀 Aggressive growth</button>
+              </div>
+            </div>
+            <div>
+              <label class="hint" for="regimeSel" style="display:block;margin-bottom:6px">Market view</label>
+              <select class="select" id="regimeSel">
+                <option value="auto">Auto — today's model read</option>
+                <option value="Bullish">Force: Bullish</option>
+                <option value="Neutral">Force: Neutral</option>
+                <option value="Cautious">Force: Cautious</option>
+              </select>
+            </div>
+            <button class="btn" id="analyseMarket" style="margin-left:auto">📈 Analyse market &amp; recommend</button>
+          </div>
+        </div>
+
+        <div id="recResult" class="hidden"></div>
+      </div>
+
+      <p class="disclaimer" id="disclaimer"></p>
+    </section>
+  </div>
+
+  <!-- pdf.js is optional: enables reading password-protected PDFs when online.
+       Everything else (CSV, paste, sample, charts, recommendations) works without it. -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>
+    if (window.pdfjsLib) {
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+        "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+    }
+  </script>
+  <script src="funds.js"></script>
+  <script src="charts.js"></script>
+  <script src="parser.js"></script>
+  <script src="sample.js"></script>
+  <script src="recommend.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
