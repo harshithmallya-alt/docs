@@ -1,0 +1,46 @@
+name: Deploy Mutual Fund Analyzer to GitHub Pages
+
+# Publishes the static app in mutual-fund-analyzer/ to GitHub Pages.
+# The folder is uploaded as the site root, so the live URL is:
+#   https://<owner>.github.io/docs/
+on:
+  push:
+    branches: [main]
+    paths:
+      - "mutual-fund-analyzer/**"
+      - ".github/workflows/deploy-pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure Pages (auto-enable if needed)
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Upload the app folder as the site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./mutual-fund-analyzer
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
